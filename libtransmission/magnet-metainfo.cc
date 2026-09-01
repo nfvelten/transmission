@@ -215,6 +215,25 @@ void tr_magnet_metainfo::add_webseed(std::string_view webseed)
     urls.emplace_back(webseed);
 }
 
+void tr_magnet_metainfo::add_peer(std::string_view socket_address)
+{
+    // https://www.bittorrent.org/beps/bep_0009.html
+    // "x.pe" is a peer address expressed as either hostname:port,
+    // ipv4-literal:port or [ipv6-literal]:port. Only the literal forms
+    // are used here, since resolving a hostname would block.
+    auto const addr = tr_socket_address::from_string(tr_strv_strip(socket_address));
+    if (!addr || !addr->is_valid() || addr->port().empty())
+    {
+        return;
+    }
+
+    auto& peers = peers_;
+    if (std::ranges::find(peers, *addr) == std::ranges::end(peers))
+    {
+        peers.emplace_back(*addr);
+    }
+}
+
 bool tr_magnet_metainfo::parseMagnet(std::string_view magnet_link, tr_error* error)
 {
     magnet_link = tr_strv_strip(magnet_link);
@@ -254,6 +273,10 @@ bool tr_magnet_metainfo::parseMagnet(std::string_view magnet_link, tr_error* err
             {
                 this->webseed_urls_.emplace_back(url_sv);
             }
+        }
+        else if (key == "x.pe"sv)
+        {
+            this->add_peer(tr_urlPercentDecode(value));
         }
         else if (static auto constexpr ValPrefix = "urn:btih:"sv; key == "xt"sv && tr_strv_starts_with(value, ValPrefix))
         {
