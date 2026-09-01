@@ -102,6 +102,44 @@ TEST_F(MagnetMetainfoTest, magnetParse)
     }
 }
 
+TEST_F(MagnetMetainfoTest, magnetParsePeers)
+{
+    // https://www.bittorrent.org/beps/bep_0009.html - "x.pe" peer addresses
+    auto constexpr Uri =
+        "magnet:?xt=urn:btih:"
+        "d2354010a3ca4ade5b7427bb093a62a3899ff381"
+        "&x.pe=192.0.2.1%3A6881"
+        "&x.pe=%5B2001%3Adb8%3A%3A1%5D%3A6882"sv;
+
+    auto mm = tr_magnet_metainfo{};
+    ASSERT_TRUE(mm.parseMagnet(Uri));
+
+    auto const& peers = mm.peers();
+    ASSERT_EQ(2U, std::size(peers));
+    EXPECT_EQ("192.0.2.1:6881"sv, peers[0].display_name());
+    EXPECT_EQ("[2001:db8::1]:6882"sv, peers[1].display_name());
+}
+
+TEST_F(MagnetMetainfoTest, magnetParseSkipsInvalidPeers)
+{
+    auto constexpr Uri =
+        "magnet:?xt=urn:btih:"
+        "d2354010a3ca4ade5b7427bb093a62a3899ff381"
+        "&x.pe="
+        "&x.pe=192.0.2.1" // no port
+        "&x.pe=example.com%3A6881" // hostname, not a literal address
+        "&x.pe=not-an-address"
+        "&x.pe=192.0.2.1%3A6881"
+        "&x.pe=192.0.2.1%3A6881"sv; // duplicate of the previous one
+
+    auto mm = tr_magnet_metainfo{};
+    ASSERT_TRUE(mm.parseMagnet(Uri));
+
+    auto const& peers = mm.peers();
+    ASSERT_EQ(1U, std::size(peers));
+    EXPECT_EQ("192.0.2.1:6881"sv, peers[0].display_name());
+}
+
 TEST_F(MagnetMetainfoTest, parseMagnetFuzzRegressions)
 {
     static auto constexpr Tests = std::array<std::string_view, 1>{
