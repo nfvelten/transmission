@@ -12,7 +12,6 @@
 
 #include "libtransmission/announce-list.h"
 #include "libtransmission/crypto-utils.h"
-#include "libtransmission/net.h" // tr_socket_address
 #include "libtransmission/tr-macros.h" // TR_CONSTEXPR_VEC, tr_sha1_digest_t
 
 struct tr_error;
@@ -46,6 +45,9 @@ public:
         return webseed_urls_.at(i);
     }
 
+    // Peer socket addresses named by the magnet link's "x.pe" parameters, in
+    // tr_socket_address::display_name() form. Kept as strings so that this
+    // header remains usable outside of libtransmission.
     [[nodiscard]] constexpr auto const& peers() const noexcept
     {
         return peers_;
@@ -80,7 +82,7 @@ public:
 protected:
     tr_announce_list announce_list_;
     std::vector<std::string> webseed_urls_;
-    std::vector<tr_socket_address> peers_;
+    std::vector<std::string> peers_;
     tr_sha1_digest_t info_hash_ = {};
     tr_sha256_digest_t info_hash2_ = {};
     tr_sha1_string info_hash_str_;

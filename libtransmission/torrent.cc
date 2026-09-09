@@ -9,7 +9,6 @@
 #include <chrono>
 #include <cstddef> // size_t
 #include <ctime>
-#include <iterator> // back_inserter
 #include <map>
 #include <sstream>
 #include <ranges>
@@ -1019,14 +1018,17 @@ void tr_torrent::init(tr_ctor const& ctor)
 
     torrent_announcer = session->announcer_->addTorrent(this, &tr_torrent::on_tracker_response);
 
-    // peers named by the magnet link's "x.pe" parameters
-    if (auto const& peers = metainfo_.peers(); !std::empty(peers))
+    // peers named by the magnet link's "x.pe" parameters. They were validated
+    // when the link was parsed, so from_string() is expected to succeed here.
+    auto pex = std::vector<tr_pex>{};
+    for (auto const& peer : metainfo_.peers())
     {
-        auto pex = std::vector<tr_pex>{};
-        pex.reserve(std::size(peers));
-        std::ranges::transform(peers, std::back_inserter(pex), [](auto const& socket_address) { return tr_pex{ socket_address }; });
-        tr_peerMgrAddPex(this, TR_PEER_FROM_PEX, std::data(pex), std::size(pex));
+        if (auto const socket_address = tr_socket_address::from_string(peer); socket_address)
+        {
+            pex.emplace_back(*socket_address);
+        }
     }
+    tr_peerMgrAddPex(this, TR_PEER_FROM_MAGNET, std::data(pex), std::size(pex));
 
     if (auto const has_metainfo = this->has_metainfo(); is_new_torrent && has_metainfo)
     {
